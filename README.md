@@ -26,6 +26,24 @@ No service-account JSON keys were created. This lab uses an attached Compute Eng
 
 The bucket also retained default project convenience bindings. Least privilege here describes the workload account's resource-level grants, not an assertion that every project administrator has minimal access.
 
+## Configuration evidence
+
+### Bucket security settings
+
+![Bucket security settings](screenshots/07-bucket-security-settings.png)
+
+### Bucket-scoped read permission
+
+![Bucket-scoped read permission](screenshots/08-bucket-reader-binding.png)
+
+### Key-scoped decrypt permission
+
+![Key-scoped decrypt permission](screenshots/10-kms-decrypter-binding.png)
+
+### VM identity from the metadata server
+
+![VM identity from the metadata server](screenshots/19-vm-metadata-service-account.png)
+
 ## Verified access tests
 
 | VM operation | Result | Evidence filename |
@@ -40,6 +58,24 @@ All five observed results matched the intended permissions: two allowed and thre
 
 The human administrator encrypted a dummy payload and uploaded only the ciphertext. The VM read and decrypted it. SSH login keys used to access Linux are separate from service-account JSON credential keys.
 
+### Allowed operations
+
+The attached workload account successfully read the encrypted object and decrypted the dummy payload.
+
+![VM object read allowed](screenshots/24-vm-bucket-read-allowed.png)
+
+![VM KMS decrypt allowed](screenshots/25-vm-kms-decrypt-allowed.png)
+
+### Denied operations
+
+The workload account could not list VMs, upload objects, or encrypt with the lab key.
+
+![VM listing denied](screenshots/21-vm-list-permission-denied.png)
+
+![Object upload denied](screenshots/26-vm-bucket-write-denied.png)
+
+![KMS encryption denied](screenshots/27-vm-kms-encrypt-denied.png)
+
 ## Detection results
 
 | SQL file | Purpose | Observed result |
@@ -53,6 +89,30 @@ The human administrator encrypted a dummy payload and uploaded only the cipherte
 The broad decrypt query returned two events. The tuned query returned one: it excluded one known-benign workload decrypt and retained one simulated unexpected-actor event. The exception requires the exact workload identity, exact key resource, and successful status. It does not exclude all service accounts or Google-managed service agents. An allowed identity can still be compromised; this exception alone does not detect misuse of its normal privileges.
 
 The human decrypt was an authorized lab test, not an actual attack. The temporary test account's bucket binding was removed after detection validation.
+
+### IAM policy changes detected
+
+![IAM policy changes detected](screenshots/32-iam-policy-changes-detected.png)
+
+### Role addition extracted from the audit record
+
+![Role addition extracted from the audit record](screenshots/33-role-binding-addition-detected.png)
+
+### Decrypt detection before tuning
+
+Both the expected workload decrypt and the controlled human decrypt appeared in the broad query.
+
+![Two decrypt events before tuning](screenshots/35-kms-decrypt-before-tuning.png)
+
+### Decrypt detection after tuning
+
+The exact expected workload/key/success combination was excluded. The controlled human decrypt remained for review.
+
+![Human decrypt retained after tuning](screenshots/36-kms-decrypt-after-tuning.png)
+
+### Denied KMS encryption recorded in BigQuery
+
+![Denied KMS encryption recorded in BigQuery](screenshots/37-denied-kms-operation-detected.png)
 
 ## Run the queries
 
@@ -73,7 +133,7 @@ Repeat with the desired SQL filename. Queries require the dataset and exported l
 - [Screenshot filenames and upload guidance](screenshots/README.md)
 - [Cleanup status and procedure](docs/CLEANUP.md)
 
-Screenshots are added separately from the locally saved evidence folder. Review personal emails and account/billing details before publishing. This package does not include credentials or the original unredacted screenshots.
+Screenshots 01–38 are stored in the [screenshots folder](screenshots/). Selected evidence is displayed above; the folder contains the complete collection. Review personal information before publishing additional evidence. No credentials are included in this repository.
 
 ## Lessons and limitations
 
@@ -86,3 +146,5 @@ These are manually executed SQL detections, not scheduled alerts or real-time in
 ## Cleanup status
 
 At the last verified checkpoint, the VM was stopped and the temporary test bucket binding was removed. Full cleanup is pending. Stopping a VM does not remove its disk, bucket, KMS key, or stored logs. Update this section after cleanup is verified.
+
+![VM stopped after validation](screenshots/38-vm-stopped.png)
